@@ -55,10 +55,8 @@ class HeartbeatService:
         print(f"[HEARTBEAT] Service started for {self.node.node_id} "
               f"(interval={self.interval}s, timeout={self.timeout}s)")
 
-    # ------------------------------------------------------------------
-    # Background loop
-    # ------------------------------------------------------------------
 
+    # Background loop
     def _run(self):
         """Ping all peers in a loop, forever."""
         while True:
@@ -104,10 +102,8 @@ class HeartbeatService:
                     print(f"[HEARTBEAT] *** {pid} is DOWN "
                           f"(no response for {elapsed:.1f}s) ***")
 
-    # ------------------------------------------------------------------
-    # Public accessors
-    # ------------------------------------------------------------------
 
+    # Public accessors
     def is_alive(self, node_id: str) -> bool:
         """Return True if the given peer is currently considered alive."""
         with self._lock:
