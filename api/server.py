@@ -9,6 +9,7 @@
 
 import time
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 
 def create_app(node, replication_mgr, failure_detector, raft, clock):
@@ -25,6 +26,7 @@ def create_app(node, replication_mgr, failure_detector, raft, clock):
     Returns: configured Flask app
     """
     app = Flask(__name__)
+    CORS(app)
 
     # -------------------------------------------------------------------------
     # POST /upload  — upload a file to CloudDrive
