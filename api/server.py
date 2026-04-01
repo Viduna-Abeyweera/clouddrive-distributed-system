@@ -174,18 +174,31 @@ def create_app(node, replication_mgr, failure_detector, raft, clock):
     def simulate_recover():
         """
         Bring a simulated-dead node back online and trigger recovery sync.
+
+        Uses node.peers (static config) instead of failure_detector.get_alive_nodes()
+        because the failure detector hasn't had time to re-ping peers yet after
+        the simulated crash — it still thinks all peers are dead.
         """
         node.alive = True
         print(f"\n[DEMO] {node.node_id} recovering...\n")
 
         # Trigger file sync from a healthy peer
         result = {}
-        if node.replication_mgr:
-            from fault_tolerance.recovery import recover_node
-            alive = failure_detector.get_alive_nodes()
-            peers = [p for p in alive if p["id"] != node.node_id]
-            if peers:
-                result = recover_node(node, peers[0]) or {}
+        from fault_tolerance.recovery import recover_node
+
+        # Try each known peer from config until one responds successfully.
+        # We cannot use failure_detector here because:
+        #   - While this node was "dead", its HeartbeatService couldn't reach
+        #     any peers, so it marked them ALL as dead from our perspective.
+        #   - We just set alive=True, but the heartbeat thread hasn't had
+        #     time to re-ping and update the alive status yet.
+        #   - Using failure_detector.get_alive_nodes() would return only
+        #     ourselves, giving us an empty peer list and no sync.
+        for peer in node.peers:
+            sync_result = recover_node(node, peer)
+            if sync_result is not None:
+                result = sync_result
+                break   # successfully synced from one peer, that's enough
 
         return jsonify({
             "status":      "recovered",
