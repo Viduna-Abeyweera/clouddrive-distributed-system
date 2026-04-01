@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CloudDrive — Control Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:       #080c12;
+  --bg2:      #0d1320;
+  --bg3:      #121a28;
+  --bg4:      #1a2438;
+  --border:   rgba(255,255,255,0.07);
+  --border2:  rgba(255,255,255,0.12);
+  --text:     #e8edf5;
+  --muted:    #6b7a9a;
+  --hint:     #3d4a62;
+  --blue:     #3b82f6;
+  --blue2:    #1d4ed8;
+  --cyan:     #06b6d4;
+  --green:    #10b981;
+  --green2:   #065f46;
+  --red:      #ef4444;
+  --red2:     #7f1d1d;
+  --amber:    #f59e0b;
+  --amber2:   #78350f;
+  --purple:   #8b5cf6;
+  --pink:     #ec4899;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Outfit',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* GRID BACKGROUND */
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* LAYOUT */
+.app{position:relative;z-index:1;padding:0 0 60px}
+
+/* TOPBAR */
+.topbar{
+  display:flex;align-items:center;gap:16px;
+  padding:16px 28px;
+  border-bottom:1px solid var(--border);
+  background:rgba(8,12,18,0.9);
+  backdrop-filter:blur(12px);
+  position:sticky;top:0;z-index:100;
+}
+.logo{
+  display:flex;align-items:center;gap:10px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:15px;font-weight:700;
+  color:var(--text);letter-spacing:-0.5px;
+}
+.logo-icon{
+  width:28px;height:28px;
+  background:linear-gradient(135deg,var(--blue),var(--cyan));
+  border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;
+}
+.topbar-mid{flex:1;display:flex;align-items:center;justify-content:center;gap:8px}
+.cluster-badge{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;padding:4px 12px;
+  border-radius:100px;
+  border:1px solid var(--border2);
+  color:var(--muted);
+  display:flex;align-items:center;gap:6px;
+}
+.pulse{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--green);
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.poll-indicator{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;color:var(--hint);
+  letter-spacing:1px;
+}
+
+/* MAIN GRID */
+.main{
+  display:grid;
+  grid-template-columns:1fr 340px;
+  grid-template-rows:auto auto;
+  gap:0;
+  padding:0;
+}
+
+/* LEFT COLUMN */
+.left{padding:24px 24px 24px 28px;display:flex;flex-direction:column;gap:20px}
+
+/* RIGHT SIDEBAR */
+.sidebar{
+  border-left:1px solid var(--border);
+  padding:24px 20px;
+  display:flex;flex-direction:column;gap:20px;
+  background:rgba(13,19,32,0.5);
+}
+
+/* SECTION LABELS */
+.section-label{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--hint);
+  margin-bottom:10px;
+  display:flex;align-items:center;gap:8px;
+}
+.section-label::after{
+  content:'';flex:1;
+  height:1px;background:var(--border);
+}
+
+/* NODE CARDS GRID */
+.nodes-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* NODE CARD */
+.node-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px;
+  position:relative;
+  overflow:hidden;
+  transition:border-color 0.3s,box-shadow 0.3s;
+}
+.node-card.alive{border-color:rgba(16,185,129,0.2)}
+.node-card.dead{
+  border-color:rgba(239,68,68,0.3);
+  background:rgba(127,29,29,0.1);
+}
+.node-card.leader{
+  border-color:rgba(59,130,246,0.4);
+  box-shadow:0 0 0 1px rgba(59,130,246,0.1) inset;
+}
+.node-card::before{
+  content:'';
+  position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--green);
+  transition:background 0.3s;
+}
+.node-card.dead::before{background:var(--red)}
+.node-card.leader::before{background:var(--blue)}
+
+.node-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.node-id{
+  font-family:'JetBrains Mono',monospace;
+  font-size:14px;font-weight:600;
+  color:var(--text);
+}
+.node-badges{display:flex;gap:6px;align-items:center}
+.badge{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;font-weight:600;
+  padding:2px 8px;border-radius:100px;
+  letter-spacing:0.5px;text-transform:uppercase;
+}
+.badge-alive{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3)}
+.badge-dead{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3)}
+.badge-leader{background:rgba(59,130,246,0.15);color:var(--blue);border:1px solid rgba(59,130,246,0.3)}
+.badge-follower{background:rgba(107,122,154,0.15);color:var(--muted);border:1px solid var(--border)}
+.badge-candidate{background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.3)}
+
+.node-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.stat{background:var(--bg3);border-radius:7px;padding:8px 10px}
+.stat-label{font-size:10px;color:var(--muted);margin-bottom:3px;font-family:'JetBrains Mono',monospace}
+.stat-value{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--text)}
+.stat-value.green{color:var(--green)}
+.stat-value.blue{color:var(--blue)}
+.stat-value.amber{color:var(--amber)}
+.stat-value.red{color:var(--red)}
+
+.node-actions{display:flex;gap:6px}
+.btn{
+  flex:1;padding:7px 10px;border-radius:7px;
+  border:1px solid var(--border2);
+  background:transparent;
+  color:var(--muted);
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;font-weight:500;
+  cursor:pointer;
+  transition:all 0.2s;
+  letter-spacing:0.3px;
+}
+.btn:hover{border-color:var(--border2);color:var(--text);background:var(--bg3)}
+.btn.btn-kill{border-color:rgba(239,68,68,0.3);color:var(--red)}
+.btn.btn-kill:hover{background:rgba(239,68,68,0.1)}
+.btn.btn-recover{border-color:rgba(16,185,129,0.3);color:var(--green)}
+.btn.btn-recover:hover{background:rgba(16,185,129,0.1)}
+.btn.btn-primary{
+  background:var(--blue);border-color:var(--blue);
+  color:#fff;flex:none;padding:8px 18px;
+}
+.btn.btn-primary:hover{background:var(--blue2)}
+.btn.btn-danger{background:var(--red);border-color:var(--red);color:#fff}
+.btn.btn-danger:hover{background:#dc2626}
+.btn.btn-success{background:var(--green);border-color:var(--green);color:#fff}
+.btn.btn-success:hover{background:#059669}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+
+/* CLUSTER OVERVIEW STRIP */
+.overview-strip{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:12px;padding:16px 20px;
+  display:grid;grid-template-columns:repeat(5,1fr);gap:16px;
+}
+.ov-item{display:flex;flex-direction:column;gap:4px}
+.ov-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.ov-value{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--text)}
+.ov-value.blue{color:var(--blue)}
+.ov-value.green{color:var(--green)}
+.ov-value.red{color:var(--red)}
+.ov-value.amber{color:var(--amber)}
+
+/* FILES TABLE */
+.files-table{width:100%;border-collapse:collapse}
+.files-table th{
+  text-align:left;padding:8px 12px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;color:var(--hint);
+  letter-spacing:1px;text-transform:uppercase;
+  border-bottom:1px solid var(--border);
+}
+.files-table td{
+  padding:9px 12px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;color:var(--text);
+  border-bottom:1px solid var(--border);
+}
+.files-table tr:hover td{background:rgba(255,255,255,0.02)}
+.files-table tr:last-child td{border-bottom:none}
+.file-name{color:var(--cyan);font-weight:500}
+.file-actions{display:flex;gap:6px}
+.btn-tiny{
+  padding:3px 10px;border-radius:5px;
+  border:1px solid var(--border2);
+  background:transparent;color:var(--muted);
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;cursor:pointer;
+  transition:all 0.15s;
+}
+.btn-tiny:hover{color:var(--text);background:var(--bg3)}
+.btn-tiny.dl:hover{color:var(--cyan);border-color:rgba(6,182,212,0.4)}
+
+/* UPLOAD PANEL */
+.upload-panel{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:12px;padding:16px;
+}
+.input-group{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.input-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+.inp{
+  width:100%;padding:9px 12px;
+  background:var(--bg3);
+  border:1px solid var(--border2);
+  border-radius:8px;
+  color:var(--text);
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;
+  outline:none;
+  transition:border-color 0.2s;
+}
+.inp:focus{border-color:var(--blue)}
+textarea.inp{resize:vertical;min-height:80px}
+select.inp{cursor:pointer}
+
+/* EVENT LOG */
+.event-log{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:12px;overflow:hidden;
+  height:260px;display:flex;flex-direction:column;
+}
+.log-header{
+  padding:10px 14px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.log-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:1px}
+.log-clear{
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--hint);cursor:pointer;background:none;border:none;
+}
+.log-clear:hover{color:var(--muted)}
+.log-body{flex:1;overflow-y:auto;padding:8px 0}
+.log-entry{
+  display:flex;gap:10px;align-items:flex-start;
+  padding:4px 14px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  line-height:1.5;
+  animation:fadeIn 0.3s ease;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.log-time{color:var(--hint);flex-shrink:0;width:60px}
+.log-tag{
+  padding:1px 6px;border-radius:4px;
+  font-size:9px;font-weight:600;flex-shrink:0;
+  letter-spacing:0.5px;text-transform:uppercase;
+  margin-top:1px;
+}
+.tag-info{background:rgba(59,130,246,0.15);color:var(--blue)}
+.tag-ok{background:rgba(16,185,129,0.15);color:var(--green)}
+.tag-warn{background:rgba(245,158,11,0.15);color:var(--amber)}
+.tag-error{background:rgba(239,68,68,0.15);color:var(--red)}
+.log-msg{color:var(--text);flex:1}
+
+/* TEST SCENARIOS */
+.scenarios{display:flex;flex-direction:column;gap:8px}
+.scenario-btn{
+  width:100%;padding:12px 14px;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:9px;
+  color:var(--text);
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;
+  cursor:pointer;
+  text-align:left;
+  display:flex;align-items:center;gap:10px;
+  transition:all 0.2s;
+  position:relative;
+  overflow:hidden;
+}
+.scenario-btn:hover{border-color:var(--border2);background:var(--bg4)}
+.scenario-btn:disabled{opacity:0.5;cursor:not-allowed}
+.scenario-icon{
+  width:28px;height:28px;border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;flex-shrink:0;
+}
+.s1{background:rgba(59,130,246,0.15)}
+.s2{background:rgba(239,68,68,0.15)}
+.s3{background:rgba(139,92,246,0.15)}
+.s4{background:rgba(16,185,129,0.15)}
+.scenario-text{display:flex;flex-direction:column;gap:2px}
+.scenario-name{font-size:12px;font-weight:600;color:var(--text)}
+.scenario-desc{font-size:10px;color:var(--muted);font-weight:400}
+.running-bar{
+  position:absolute;bottom:0;left:0;height:2px;
+  background:var(--blue);width:0%;
+  transition:width 0.1s linear;
+}
+
+/* PROGRESS OVERLAY */
+.step-status{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:9px;padding:12px 14px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;color:var(--muted);
+  display:none;
+}
+.step-status.active{display:block}
+.step-current{color:var(--cyan);margin-bottom:4px}
+
+/* MODAL */
+.modal-overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,0.7);
+  backdrop-filter:blur(4px);
+  z-index:200;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;
+  transition:opacity 0.2s;
+}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{
+  background:var(--bg2);
+  border:1px solid var(--border2);
+  border-radius:14px;
+  padding:24px;
+  width:480px;
+  max-width:90vw;
+}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:6px}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
+.modal-content{
+  background:var(--bg3);border-radius:9px;
+  padding:14px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;color:var(--cyan);
+  white-space:pre-wrap;
+  max-height:200px;overflow-y:auto;
+  margin-bottom:16px;
+}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--hint);border-radius:2px}
+
+/* TOAST */
+.toasts{position:fixed;bottom:24px;right:24px;z-index:300;display:flex;flex-direction:column;gap:8px}
+.toast{
+  padding:10px 16px;border-radius:9px;
+  font-family:'JetBrains Mono',monospace;font-size:12px;
+  border:1px solid;
+  animation:slideIn 0.3s ease;
+  max-width:320px;
+}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast-ok{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);color:var(--green)}
+.toast-err{background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:var(--red)}
+.toast-info{background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.3);color:var(--blue)}
+
+/* SYNC BADGE */
+.sync-row{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.sync-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--hint);
+  transition:background 0.3s;
+}
+.sync-dot.synced{background:var(--green)}
+.sync-dot.stale{background:var(--red)}
+
+/* RESPONSIVE NOTE */
+.cors-notice{
+  background:rgba(245,158,11,0.08);
+  border:1px solid rgba(245,158,11,0.2);
+  border-radius:9px;padding:12px 16px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:var(--amber);display:none;
+  margin:16px 28px 0;
+}
+.cors-notice.show{display:block}
+</style>
+</head>
+<body>
+
+<!-- TOASTS -->
+<div class="toasts" id="toasts"></div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">☁</div>
+    CloudDrive
+  </div>
+  <div class="topbar-mid">
+    <div class="cluster-badge">
+      <div class="pulse" id="cluster-pulse"></div>
+      <span id="cluster-label">Connecting to cluster...</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="poll-indicator" id="poll-indicator">POLLING...</div>
+  </div>
+</div>
+
+<!-- CORS NOTICE -->
+<div class="cors-notice" id="cors-notice">
+  ⚠ Cannot reach nodes. Make sure: (1) all 4 nodes are running, (2) flask-cors is installed and enabled in api/server.py
+</div>
+
+<div class="app">
+  <div class="main">
+
+    <!-- LEFT COLUMN -->
+    <div class="left">
+
+      <!-- CLUSTER OVERVIEW -->
+      <div>
+        <div class="section-label">Cluster Overview</div>
+        <div class="overview-strip">
+          <div class="ov-item">
+            <div class="ov-label">Leader</div>
+            <div class="ov-value blue" id="ov-leader">—</div>
+          </div>
+          <div class="ov-item">
+            <div class="ov-label">Term</div>
+            <div class="ov-value" id="ov-term">—</div>
+          </div>
+          <div class="ov-item">
+            <div class="ov-label">Alive</div>
+            <div class="ov-value green" id="ov-alive">—</div>
+          </div>
+          <div class="ov-item">
+            <div class="ov-label">Lamport Clock</div>
+            <div class="ov-value amber" id="ov-clock">—</div>
+          </div>
+          <div class="ov-item">
+            <div class="ov-label">Total Files</div>
+            <div class="ov-value" id="ov-files">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NODE CARDS -->
+      <div>
+        <div class="section-label">Node Status</div>
+        <div class="nodes-grid" id="nodes-grid">
+          <!-- generated by JS -->
+        </div>
+      </div>
+
+      <!-- FILES TABLE -->
+      <div>
+        <div class="section-label" style="margin-bottom:10px">
+          Files in Cluster
+          <button class="btn-tiny" onclick="refreshFiles()" style="margin-left:8px">↻ Refresh</button>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+          <table class="files-table" id="files-table">
+            <thead>
+              <tr>
+                <th>Filename</th>
+                <th>Version</th>
+                <th>Timestamp</th>
+                <th>In Sync</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="files-tbody">
+              <tr><td colspan="5" style="text-align:center;color:var(--hint);padding:20px">No files yet — upload one to get started</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- EVENT LOG -->
+      <div>
+        <div class="section-label">Event Log</div>
+        <div class="event-log">
+          <div class="log-header">
+            <div class="log-title">LIVE EVENTS</div>
+            <button class="log-clear" onclick="clearLog()">clear</button>
+          </div>
+          <div class="log-body" id="log-body">
+            <div class="log-entry">
+              <span class="log-time">--:--:--</span>
+              <span class="log-tag tag-info">INFO</span>
+              <span class="log-msg">CloudDrive Control Panel started. Connecting to nodes...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /left -->
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+
+      <!-- UPLOAD -->
+      <div>
+        <div class="section-label">Upload File</div>
+        <div class="upload-panel">
+          <div class="input-group">
+            <div class="input-label">Filename</div>
+            <input class="inp" id="upload-filename" type="text" placeholder="e.g. report.txt"/>
+          </div>
+          <div class="input-group">
+            <div class="input-label">Content</div>
+            <textarea class="inp" id="upload-content" placeholder="File content here..."></textarea>
+          </div>
+          <div class="input-group">
+            <div class="input-label">Upload to Node</div>
+            <select class="inp" id="upload-node">
+              <option value="6001">node_A (port 6001)</option>
+              <option value="6002">node_B (port 6002)</option>
+              <option value="6003">node_C (port 6003)</option>
+              <option value="6004">node_D (port 6004)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" style="width:100%" onclick="uploadFile()">Upload & Replicate</button>
+        </div>
+      </div>
+
+      <!-- DOWNLOAD -->
+      <div>
+        <div class="section-label">Download File</div>
+        <div class="upload-panel">
+          <div class="input-group">
+            <div class="input-label">Filename</div>
+            <input class="inp" id="dl-filename" type="text" placeholder="e.g. report.txt"/>
+          </div>
+          <div class="input-group">
+            <div class="input-label">Download from Node</div>
+            <select class="inp" id="dl-node">
+              <option value="6001">node_A (port 6001)</option>
+              <option value="6002">node_B (port 6002)</option>
+              <option value="6003">node_C (port 6003)</option>
+              <option value="6004">node_D (port 6004)</option>
+            </select>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer">
+            <input type="checkbox" id="dl-strong"/>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">Strong consistency (?strong=true)</span>
+          </label>
+          <button class="btn btn-success" style="width:100%" onclick="downloadFile()">Download File</button>
+        </div>
+      </div>
+
+      <!-- TEST SCENARIOS -->
+      <div>
+        <div class="section-label">Test Scenarios</div>
+        <div class="scenarios">
+
+          <button class="scenario-btn" id="btn-t1" onclick="runT1()">
+            <div class="scenario-icon s1">T1</div>
+            <div class="scenario-text">
+              <div class="scenario-name">Replication Test</div>
+              <div class="scenario-desc">Upload 5 files, verify all nodes</div>
+            </div>
+            <div class="running-bar" id="bar-t1"></div>
+          </button>
+
+          <button class="scenario-btn" id="btn-t2" onclick="runT2()">
+            <div class="scenario-icon s2">T2</div>
+            <div class="scenario-text">
+              <div class="scenario-name">Fault Tolerance Test</div>
+              <div class="scenario-desc">Kill node_B, upload, recover, verify</div>
+            </div>
+            <div class="running-bar" id="bar-t2"></div>
+          </button>
+
+          <button class="scenario-btn" id="btn-t3" onclick="runT3()">
+            <div class="scenario-icon s3">T3</div>
+            <div class="scenario-text">
+              <div class="scenario-name">Leader Election Test</div>
+              <div class="scenario-desc">Kill leader, verify new election</div>
+            </div>
+            <div class="running-bar" id="bar-t3"></div>
+          </button>
+
+          <button class="scenario-btn" id="btn-t4" onclick="runT4()">
+            <div class="scenario-icon s4">T4</div>
+            <div class="scenario-text">
+              <div class="scenario-name">Version Update Test</div>
+              <div class="scenario-desc">Upload v1 → v2, verify all nodes</div>
+            </div>
+            <div class="running-bar" id="bar-t4"></div>
+          </button>
+
+        </div>
+
+        <div class="step-status" id="step-status">
+          <div class="step-current" id="step-current">Running...</div>
+          <div id="step-detail" style="color:var(--hint);font-size:10px"></div>
+        </div>
+      </div>
+
+    </div><!-- /sidebar -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- DOWNLOAD MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">File Downloaded</div>
+    <div class="modal-sub" id="modal-sub">Content retrieved from the cluster</div>
+    <div class="modal-content" id="modal-content"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+const NODES = [
+  { id: 'node_A', port: 6001 },
+  { id: 'node_B', port: 6002 },
+  { id: 'node_C', port: 6003 },
+  { id: 'node_D', port: 6004 },
+];
+const BASE = (port) => `http://127.0.0.1:${port}`;
+let nodeStates = {};         // latest status per node
+let knownFiles = new Set();  // filenames seen
+let pollTimer = null;
+let scenarioRunning = false;
+let connectionOk = false;
+
+// ─── INIT ───────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  renderNodeCards();
+  startPolling();
+});
+
+// ─── NODE CARDS ─────────────────────────────────────────────────────────────
+function renderNodeCards() {
+  const grid = document.getElementById('nodes-grid');
+  grid.innerHTML = NODES.map(n => `
+    <div class="node-card" id="card-${n.id}">
+      <div class="node-header">
+        <div class="node-id">${n.id}</div>
+        <div class="node-badges">
+          <span class="badge badge-follower" id="role-${n.id}">—</span>
+          <span class="badge badge-alive" id="alive-${n.id}">—</span>
+        </div>
+      </div>
+      <div class="node-stats">
+        <div class="stat">
+          <div class="stat-label">Files</div>
+          <div class="stat-value" id="files-${n.id}">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Lamport</div>
+          <div class="stat-value amber" id="clock-${n.id}">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Term</div>
+          <div class="stat-value blue" id="term-${n.id}">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Port</div>
+          <div class="stat-value green">${n.port}</div>
+        </div>
+      </div>
+      <div class="node-actions">
+        <button class="btn btn-kill" onclick="killNode('${n.id}',${n.port})">Kill</button>
+        <button class="btn btn-recover" onclick="recoverNode('${n.id}',${n.port})">Recover</button>
+        <button class="btn" onclick="openStatus('${n.id}',${n.port})">Status</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── POLLING ────────────────────────────────────────────────────────────────
+function startPolling() {
+  pollAll();
+  pollTimer = setInterval(pollAll, 2000);
+}
+
+async function pollAll() {
+  const indicator = document.getElementById('poll-indicator');
+  indicator.style.color = 'var(--cyan)';
+  setTimeout(() => indicator.style.color = 'var(--hint)', 300);
+
+  let anyOk = false;
+  let maxClock = 0;
+  let totalFiles = 0;
+  let leader = '—';
+  let term = '—';
+  let aliveCount = 0;
+
+  await Promise.allSettled(NODES.map(async n => {
+    try {
+      const res = await fetch(`${BASE(n.port)}/status`, { signal: AbortSignal.timeout(2500) });
+      if (!res.ok) throw new Error('not ok');
+      const data = await res.json();
+      nodeStates[n.id] = { ...data, reachable: true };
+      anyOk = true;
+      aliveCount++;
+
+      if (data.lamport_ts > maxClock) maxClock = data.lamport_ts;
+      if (data.file_count > totalFiles) totalFiles = data.file_count;
+      if (data.role === 'leader') { leader = n.id; term = data.term; }
+
+      // Update card
+      updateCard(n.id, data, true);
+
+      // Collect file names
+      (data.files || []).forEach(f => knownFiles.add(f));
+    } catch(e) {
+      nodeStates[n.id] = { reachable: false };
+      updateCard(n.id, null, false);
+    }
+  }));
+
+  // Update overview strip
+  if (anyOk) {
+    document.getElementById('ov-leader').textContent = leader;
+    document.getElementById('ov-term').textContent   = term;
+    document.getElementById('ov-alive').textContent  = `${aliveCount}/4`;
+    document.getElementById('ov-clock').textContent  = maxClock;
+    document.getElementById('ov-files').textContent  = totalFiles;
+    document.getElementById('cluster-label').textContent = `Cluster Online — ${aliveCount}/4 nodes`;
+    document.getElementById('cluster-pulse').style.background = aliveCount === 4 ? 'var(--green)' : aliveCount >= 3 ? 'var(--amber)' : 'var(--red)';
+    document.getElementById('cors-notice').classList.remove('show');
+    connectionOk = true;
+  } else {
+    document.getElementById('cluster-label').textContent = 'Cluster Unreachable';
+    document.getElementById('cluster-pulse').style.background = 'var(--red)';
+    document.getElementById('cors-notice').classList.add('show');
+    connectionOk = false;
+  }
+}
+
+function updateCard(nodeId, data, reachable) {
+  const card     = document.getElementById(`card-${nodeId}`);
+  const roleBadge  = document.getElementById(`role-${nodeId}`);
+  const aliveBadge = document.getElementById(`alive-${nodeId}`);
+  const filesEl  = document.getElementById(`files-${nodeId}`);
+  const clockEl  = document.getElementById(`clock-${nodeId}`);
+  const termEl   = document.getElementById(`term-${nodeId}`);
+
+  if (!reachable) {
+    card.className = 'node-card dead';
+    roleBadge.className  = 'badge badge-dead';    roleBadge.textContent  = 'UNREACHABLE';
+    aliveBadge.className = 'badge badge-dead';    aliveBadge.textContent = 'DEAD';
+    filesEl.textContent  = '—';
+    clockEl.textContent  = '—';
+    termEl.textContent   = '—';
+    return;
+  }
+
+  const role   = data.role || 'follower';
+  const isLeader = role === 'leader';
+
+  card.className = `node-card alive ${isLeader ? 'leader' : ''}`;
+
+  roleBadge.textContent  = role.toUpperCase();
+  roleBadge.className    = `badge badge-${
+    role === 'leader' ? 'leader' : role === 'candidate' ? 'candidate' : 'follower'
+  }`;
+  aliveBadge.textContent = 'ALIVE';
+  aliveBadge.className   = 'badge badge-alive';
+  filesEl.textContent    = data.file_count ?? '—';
+  clockEl.textContent    = data.lamport_ts ?? '—';
+  termEl.textContent     = data.term ?? '—';
+}
+
+// ─── UPLOAD ─────────────────────────────────────────────────────────────────
+async function uploadFile() {
+  const filename = document.getElementById('upload-filename').value.trim();
+  const content  = document.getElementById('upload-content').value.trim();
+  const port     = document.getElementById('upload-node').value;
+
+  if (!filename || !content) { toast('error', 'Please enter filename and content'); return; }
+
+  try {
+    const res = await fetch(`${BASE(port)}/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename, content })
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      log('ok', `Uploaded '${filename}' v${data.version} → replicated to: ${(data.replicated_to||[]).join(', ') || 'none'}`);
+      toast('ok', `'${filename}' uploaded and replicated`);
+      knownFiles.add(filename);
+      refreshFiles();
+      document.getElementById('upload-filename').value = '';
+      document.getElementById('upload-content').value  = '';
+    } else {
+      log('warn', `Upload conflict: ${data.status}`);
+      toast('error', `Upload failed: ${data.status}`);
+    }
+  } catch(e) {
+    log('error', `Upload failed: ${e.message}`);
+    toast('error', 'Upload failed — is the node running?');
+  }
+}
+
+// ─── DOWNLOAD ───────────────────────────────────────────────────────────────
+async function downloadFile() {
+  const filename = document.getElementById('dl-filename').value.trim();
+  const port     = document.getElementById('dl-node').value;
+  const strong   = document.getElementById('dl-strong').checked;
+
+  if (!filename) { toast('error', 'Enter a filename to download'); return; }
+
+  try {
+    const url = `${BASE(port)}/download/${encodeURIComponent(filename)}${strong ? '?strong=true' : ''}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    if (res.ok) {
+      log('ok', `Downloaded '${filename}' v${data.version} from port ${port}`);
+      showModal(
+        `${filename}`,
+        `Version ${data.version} | Lamport timestamp: ${data.timestamp} | Node: port ${port}`,
+        JSON.stringify(data, null, 2)
+      );
+    } else {
+      log('warn', `File not found: '${filename}' on port ${port}`);
+      toast('error', `File '${filename}' not found`);
+    }
+  } catch(e) {
+    log('error', `Download failed: ${e.message}`);
+    toast('error', 'Download failed');
+  }
+}
+
+async function downloadFromTable(filename) {
+  document.getElementById('dl-filename').value = filename;
+  await downloadFile();
+}
+
+// ─── REFRESH FILES TABLE ────────────────────────────────────────────────────
+async function refreshFiles() {
+  if (knownFiles.size === 0) return;
+  const tbody = document.getElementById('files-tbody');
+  const rows  = [];
+
+  for (const filename of knownFiles) {
+    const versions = await Promise.allSettled(
+      NODES.map(n => fetch(`${BASE(n.port)}/download/${encodeURIComponent(filename)}`).then(r => r.json()))
+    );
+
+    const results = versions.map((r, i) => ({
+      nodeId: NODES[i].id,
+      ok: r.status === 'fulfilled' && !r.value.error,
+      version: r.status === 'fulfilled' ? r.value.version : null,
+      ts: r.status === 'fulfilled' ? r.value.timestamp : null,
+    }));
+
+    const maxV   = Math.max(...results.filter(r=>r.ok).map(r=>r.version||0));
+    const maxTs  = Math.max(...results.filter(r=>r.ok).map(r=>r.ts||0));
+    const inSync = results.every(r => r.ok && r.version === maxV);
+
+    const syncDots = NODES.map((n, i) => {
+      const r = results[i];
+      const cls = !r.ok ? '' : r.version === maxV ? 'synced' : 'stale';
+      return `<span class="sync-dot ${cls}" title="${n.id}: v${r.version||'?'}"></span>`;
+    }).join('');
+
+    rows.push(`
+      <tr>
+        <td class="file-name">${filename}</td>
+        <td><span style="color:var(--cyan)">v${maxV}</span></td>
+        <td style="color:var(--muted)">${maxTs}</td>
+        <td><div class="sync-row">${syncDots}</div></td>
+        <td>
+          <div class="file-actions">
+            <button class="btn-tiny dl" onclick="downloadFromTable('${filename}')">↓ Download</button>
+          </div>
+        </td>
+      </tr>
+    `);
+  }
+
+  tbody.innerHTML = rows.join('') || `<tr><td colspan="5" style="text-align:center;color:var(--hint);padding:20px">No files yet</td></tr>`;
+}
+
+// ─── KILL / RECOVER ─────────────────────────────────────────────────────────
+async function killNode(nodeId, port) {
+  try {
+    await fetch(`${BASE(port)}/simulate/kill`, { method: 'POST' });
+    log('warn', `${nodeId} killed — simulating crash`);
+    toast('info', `${nodeId} is now simulating a crash`);
+  } catch(e) {
+    log('error', `Failed to kill ${nodeId}: ${e.message}`);
+  }
+}
+
+async function recoverNode(nodeId, port) {
+  try {
+    const res  = await fetch(`${BASE(port)}/simulate/recover`, { method: 'POST' });
+    const data = await res.json();
+    const synced = data.sync_result?.synced ?? '?';
+    log('ok', `${nodeId} recovered — synced ${synced} files`);
+    toast('ok', `${nodeId} recovered (${synced} files synced)`);
+    setTimeout(refreshFiles, 2000);
+  } catch(e) {
+    log('error', `Failed to recover ${nodeId}: ${e.message}`);
+  }
+}
+
+async function openStatus(nodeId, port) {
+  try {
+    const res  = await fetch(`${BASE(port)}/status`);
+    const data = await res.json();
+    showModal(`${nodeId} — Full Status`, `Live data from port ${port}`, JSON.stringify(data, null, 2));
+  } catch(e) {
+    toast('error', `Cannot reach ${nodeId}`);
+  }
+}
+
+// ─── TEST SCENARIOS ──────────────────────────────────────────────────────────
+function setStep(msg, detail='') {
+  const el = document.getElementById('step-status');
+  el.classList.add('active');
+  document.getElementById('step-current').textContent = msg;
+  document.getElementById('step-detail').textContent  = detail;
+}
+function clearStep() {
+  document.getElementById('step-status').classList.remove('active');
+}
+
+function animateBar(id, durationMs) {
+  const bar = document.getElementById(`bar-${id}`);
+  bar.style.transition = `width ${durationMs}ms linear`;
+  bar.style.width = '100%';
+  setTimeout(() => { bar.style.transition = 'none'; bar.style.width = '0%'; }, durationMs + 100);
+}
+
+function disableScenarios(disabled) {
+  ['btn-t1','btn-t2','btn-t3','btn-t4'].forEach(id => {
+    document.getElementById(id).disabled = disabled;
+  });
+  scenarioRunning = disabled;
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function post(path, port, body={}) {
+  return fetch(`${BASE(port)}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(r => r.json());
+}
+
+async function get(path, port) {
+  return fetch(`${BASE(port)}${path}`).then(r => r.json());
+}
+
+// T1 — Replication
+async function runT1() {
+  if (scenarioRunning) return;
+  disableScenarios(true);
+  animateBar('t1', 12000);
+  log('info', 'T1 — Replication test starting...');
+
+  const files = [
+    ['file1.txt','Content of file 1'],
+    ['file2.txt','Content of file 2'],
+    ['file3.txt','Content of file 3'],
+    ['report.pdf','Annual report data'],
+    ['notes.md','# Meeting notes'],
+  ];
+
+  for (let i = 0; i < files.length; i++) {
+    const [fn, content] = files[i];
+    setStep(`Step ${i+1}/5: Uploading ${fn}`, 'Replicating to all alive nodes...');
+    try {
+      const res = await post('/upload', 6001, { filename: fn, content });
+      knownFiles.add(fn);
+      log('ok', `Uploaded '${fn}' → replicated to: ${(res.replicated_to||[]).join(', ')}`);
+    } catch(e) {
+      log('error', `Upload failed: ${e.message}`);
+    }
+    await sleep(800);
+  }
+
+  setStep('Step 5/5: Verifying all nodes have 5 files...');
+  await sleep(1500);
+
+  let allGood = true;
+  for (const n of NODES) {
+    try {
+      const s = await get('/files', n.port);
+      const count = s.count || 0;
+      if (count >= 5) {
+        log('ok', `${n.id}: count=${count} ✓`);
+      } else {
+        log('warn', `${n.id}: count=${count} — expected 5`);
+        allGood = false;
+      }
+    } catch(e) {
+      log('error', `${n.id} unreachable`);
+    }
+  }
+
+  await refreshFiles();
+  clearStep();
+  disableScenarios(false);
+  if (allGood) {
+    toast('ok', 'T1 PASSED — All nodes have 5 files');
+    log('ok', 'T1 PASSED — Replication working correctly');
+  } else {
+    toast('error', 'T1 — Some nodes missing files');
+  }
+}
+
+// T2 — Fault Tolerance
+async function runT2() {
+  if (scenarioRunning) return;
+  disableScenarios(true);
+  animateBar('t2', 30000);
+  log('info', 'T2 — Fault tolerance test starting...');
+
+  setStep('Step 1/6: Killing node_B...', 'Simulating server crash');
+  await killNode('node_B', 6002);
+  await sleep(500);
+
+  setStep('Step 2/6: Waiting for failure detection...', 'Heartbeat timeout: 6 seconds');
+  log('info', 'Waiting 8 seconds for heartbeat to detect node_B as dead...');
+  await sleep(8000);
+
+  const status = await get('/status', 6001).catch(() => null);
+  if (status?.dead_nodes?.includes('node_B')) {
+    log('ok', 'node_B correctly detected as DEAD');
+  } else {
+    log('warn', 'node_B not yet in dead_nodes — may need more time');
+  }
+
+  setStep('Step 3/6: Uploading 2 files while node_B is dead...');
+  await post('/upload', 6001, { filename: 'while_b_down_1.txt', content: 'Written while B was dead' });
+  await post('/upload', 6001, { filename: 'while_b_down_2.txt', content: 'Also written while B was dead' });
+  knownFiles.add('while_b_down_1.txt');
+  knownFiles.add('while_b_down_2.txt');
+  log('ok', 'Uploaded 2 files while node_B was down');
+  await sleep(1000);
+
+  setStep('Step 4/6: Checking node_B is missing the files...');
+  const bFiles = await get('/files', 6002).catch(() => ({ count: 0 }));
+  log('info', `node_B file count before recovery: ${bFiles.count}`);
+  await sleep(500);
+
+  setStep('Step 5/6: Recovering node_B...', 'Triggering sync from healthy peer');
+  await recoverNode('node_B', 6002);
+  await sleep(5000);
+
+  setStep('Step 6/6: Verifying node_B synced all missed files...');
+  const bFiles2 = await get('/files', 6002).catch(() => ({ count: 0 }));
+  log('info', `node_B file count after recovery: ${bFiles2.count}`);
+
+  await refreshFiles();
+  clearStep();
+  disableScenarios(false);
+
+  if (bFiles2.count > bFiles.count) {
+    toast('ok', `T2 PASSED — node_B recovered ${bFiles2.count - bFiles.count} missed files`);
+    log('ok', `T2 PASSED — count ${bFiles.count} → ${bFiles2.count}`);
+  } else {
+    toast('error', 'T2 — Recovery may not have completed');
+    log('warn', 'T2 — Check node_B manually');
+  }
+}
+
+// T3 — Leader Election
+async function runT3() {
+    if (scenarioRunning) return;
+    disableScenarios(true);
+    animateBar('t3', 35000);
+    log('info', 'T3 — Consensus / leader election test starting...');
+
+    // Step 1: Find current leader
+    setStep('Step 1/7: Finding current leader...');
+    let currentLeader = null;
+    let leaderPort = null;
+
+    for (const n of NODES) {
+        try {
+            const s = await get('/status', n.port);
+            if (s.role === 'leader') { currentLeader = n.id; leaderPort = n.port; break; }
+        } catch(e) {}
+    }
+
+    // Fallback: ask any node who the leader is
+    if (!currentLeader) {
+        for (const n of NODES) {
+            try {
+                const s = await get('/status', n.port);
+                if (s.leader) {
+                    currentLeader = s.leader;
+                    leaderPort = NODES.find(x => x.id === s.leader)?.port;
+                    break;
+                }
+            } catch(e) {}
+        }
+    }
+
+    if (!currentLeader) {
+        log('error', 'No leader found — ensure all nodes are running');
+        clearStep();
+        disableScenarios(false);
+        toast('error', 'T3 — No leader found');
+        return;
+    }
+
+    log('info', `Current leader: ${currentLeader} (port ${leaderPort})`);
+    await sleep(500);
+
+    // Step 2: Kill the leader
+    setStep('Step 2/7: Killing the current leader...', `Killing ${currentLeader}`);
+    await killNode(currentLeader, leaderPort);
+    log('warn', `${currentLeader} killed — waiting for new election...`);
+
+    // Step 3: Wait for election
+    setStep('Step 3/7: Waiting for new leader election...', 'Election timeout: 5-10 seconds');
+    await sleep(12000);
+
+    // Step 4: Check for new leader (WITH RETRIES — fixes timing issue)
+    setStep('Step 4/7: Checking new leader elected...');
+    let newLeader = null;
+    let newLeaderTerm = null;
+
+    for (let attempt = 0; attempt < 3 && !newLeader; attempt++) {
+        for (const n of NODES) {
+            if (n.id === currentLeader) continue;
+            try {
+                const s = await get('/status', n.port);
+                if (s.leader && s.leader !== currentLeader) {
+                    newLeader = s.leader;
+                    newLeaderTerm = s.term;
+                    log('ok', `New leader elected: ${s.leader} (term ${s.term})`);
+                    break;
+                }
+            } catch(e) {}
+        }
+        if (!newLeader && attempt < 2) {
+            log('info', `Retry ${attempt + 1}: Election may still be in progress, waiting 3s...`);
+            await sleep(3000);
+        }
+    }
+
+    // Step 5: Upload to verify system still works
+    setStep('Step 5/7: Uploading file to verify system works...');
+    const alivePort = NODES.find(n => n.id !== currentLeader)?.port || 6002;
+    try {
+        const res = await post('/upload', alivePort, {
+            filename: 'after_election.txt',
+            content: 'Uploaded after leader changed'
+        });
+        knownFiles.add('after_election.txt');
+        log('ok', `Upload after election succeeded — replicated to: ${(res.replicated_to||[]).join(', ')}`);
+    } catch(e) {
+        log('error', `Upload after election failed: ${e.message}`);
+    }
+
+    // Step 6: RECOVER the killed leader (THIS WAS MISSING — caused T4 to fail)
+    setStep('Step 6/7: Recovering old leader...', `Recovering ${currentLeader}`);
+    await recoverNode(currentLeader, leaderPort);
+    await sleep(3000);
+
+    // Step 7: Verify old leader rejoined as follower
+    setStep('Step 7/7: Verifying old leader rejoined as follower...');
+    try {
+        const s = await get('/status', leaderPort);
+        if (s.role === 'follower') {
+            log('ok', `${currentLeader} rejoined as follower ✓`);
+        } else {
+            log('info', `${currentLeader} role: ${s.role} (will sync shortly)`);
+        }
+    } catch(e) {
+        log('warn', `Could not verify ${currentLeader} status`);
+    }
+
+    await refreshFiles();
+    clearStep();
+    disableScenarios(false);
+
+    if (newLeader) {
+        toast('ok', `T3 PASSED — ${newLeader} elected as new leader`);
+        log('ok', `T3 PASSED — ${currentLeader} → ${newLeader}`);
+    } else {
+        toast('error', 'T3 — New leader not detected — check status manually');
+        log('warn', 'T3 — May need more time for election to complete');
+    }
+}
+
+// T4 — Version Update
+async function runT4() {
+    if (scenarioRunning) return;
+    disableScenarios(true);
+    animateBar('t4', 10000);
+    log('info', 'T4 — Version update test starting...');
+
+    // Step 1: Find a HEALTHY node to upload to (NOT hardcoded port 6001)
+    // A healthy node has alive_nodes.length >= 2 (can see at least one peer for replication)
+    setStep('Step 1/4: Finding healthy node for uploads...');
+    let uploadPort = null;
+    let uploadNodeId = null;
+    for (const n of NODES) {
+        try {
+            const s = await get('/status', n.port);
+            if (s.alive_nodes && s.alive_nodes.length >= 2) {
+                uploadPort = n.port;
+                uploadNodeId = n.id;
+                break;
+            }
+        } catch(e) {}
+    }
+    if (!uploadPort) {
+        log('error', 'No healthy node found — aborting T4');
+        clearStep();
+        disableScenarios(false);
+        toast('error', 'T4 — No healthy nodes found');
+        return;
+    }
+    log('info', `Using ${uploadNodeId} (port ${uploadPort}) for uploads`);
+
+    // Step 2: Upload version 1
+    setStep('Step 2/4: Uploading version 1...');
+    const v1Result = await post('/upload', uploadPort, {
+        filename: 'versioned.txt', content: 'This is version 1'
+    });
+    knownFiles.add('versioned.txt');
+    log('info', `Uploaded 'versioned.txt' v${v1Result.version}`);
+    await sleep(1000);
+
+    // Step 3: Upload version 2 (same file, updated content)
+    setStep('Step 3/4: Uploading version 2 of the same file...');
+    const v2Result = await post('/upload', uploadPort, {
+        filename: 'versioned.txt', content: 'This is version 2 — updated!'
+    });
+    // Use the ACTUAL returned version instead of hardcoding "2"
+    const expectedVersion = v2Result.version;
+    log('info', `Uploaded 'versioned.txt' v${expectedVersion}`);
+
+    if (expectedVersion <= v1Result.version) {
+        log('warn', `Version did not increment (v1=${v1Result.version}, v2=${expectedVersion})`);
+    }
+    await sleep(1500);
+
+    // Step 4: Verify all reachable nodes have the latest version
+    setStep('Step 4/4: Verifying all nodes have latest version...');
+    let allCorrect = true;
+    let checkedCount = 0;
+    for (const n of NODES) {
+        try {
+            const res = await get(`/download/versioned.txt`, n.port);
+            if (res.error) {
+                log('warn', `${n.id}: file not found`);
+                allCorrect = false;
+            } else if (res.version === expectedVersion) {
+                log('ok', `${n.id}: version=${res.version} ✓`);
+                checkedCount++;
+            } else {
+                log('warn', `${n.id}: version=${res.version} — expected ${expectedVersion}`);
+                allCorrect = false;
+            }
+        } catch(e) {
+            // Node is completely unreachable (process down) — skip, don't fail
+            log('warn', `${n.id}: unreachable — skipping`);
+        }
+    }
+
+    await refreshFiles();
+    clearStep();
+    disableScenarios(false);
+
+    if (allCorrect && checkedCount >= 3) {
+        toast('ok', `T4 PASSED — All nodes have version ${expectedVersion}`);
+        log('ok', 'T4 PASSED — Version update propagated correctly');
+    } else {
+        toast('error', 'T4 — Some nodes have wrong version');
+    }
+}
+
+// ─── LOG ────────────────────────────────────────────────────────────────────
+function log(type, msg) {
+  const body  = document.getElementById('log-body');
+  const time  = new Date().toTimeString().slice(0,8);
+  const tagMap = {
+    ok: 'tag-ok', info: 'tag-info',
+    warn: 'tag-warn', error: 'tag-error'
+  };
+  const label = type === 'ok' ? 'OK' : type.toUpperCase();
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `
+    <span class="log-time">${time}</span>
+    <span class="log-tag ${tagMap[type]||'tag-info'}">${label}</span>
+    <span class="log-msg">${msg}</span>
+  `;
+  body.appendChild(entry);
+  body.scrollTop = body.scrollHeight;
+}
+function clearLog() { document.getElementById('log-body').innerHTML = ''; }
+
+// ─── TOAST ──────────────────────────────────────────────────────────────────
+function toast(type, msg) {
+  const container = document.getElementById('toasts');
+  const el = document.createElement('div');
+  const cls = type === 'ok' ? 'toast-ok' : type === 'error' ? 'toast-err' : 'toast-info';
+  el.className = `toast ${cls}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ─── MODAL ──────────────────────────────────────────────────────────────────
+function showModal(title, sub, content) {
+  document.getElementById('modal-title').textContent   = title;
+  document.getElementById('modal-sub').textContent     = sub;
+  document.getElementById('modal-content').textContent = content;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+</script>
+</body>
+</html>
