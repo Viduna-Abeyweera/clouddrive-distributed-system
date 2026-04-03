@@ -1,7 +1,4 @@
-# =============================================================================
 # time_sync/vector_clock.py
-# CloudDrive — Member 3: Time Synchronization
-#
 # Implements a Vector Clock.
 # Unlike Lamport clocks, vector clocks can detect CONCURRENT events —
 # two events that happened independently with no causal relationship.
@@ -9,7 +6,6 @@
 #
 # A vector clock is a dictionary: {node_id: counter}
 # One counter per node in the cluster.
-# =============================================================================
 
 from node.config import NODES
 
@@ -40,10 +36,8 @@ class VectorClock:
         # Initialise all counters to 0
         self.clock = {node["id"]: 0 for node in NODES}
 
-    # ------------------------------------------------------------------
-    # Mutation operations
-    # ------------------------------------------------------------------
 
+    # Mutation operations
     def increment(self, node_id: str = None) -> dict:
         """
         Increment the counter for node_id (defaults to owner).
@@ -82,9 +76,8 @@ class VectorClock:
         """Return a plain dict copy of the clock (safe to serialise as JSON)."""
         return dict(self.clock)
 
-    # ------------------------------------------------------------------
+
     # Comparison
-    # ------------------------------------------------------------------
 
     @staticmethod
     def compare(vc_a: dict, vc_b: dict) -> str:
@@ -128,9 +121,8 @@ class VectorClock:
         return f"VectorClock({self.owner_id} → [{entries}])"
 
 
-# =============================================================================
-# Demo — run this file directly to see vector clock behaviour
-# =============================================================================
+
+# Demo
 if __name__ == "__main__":
     print("=" * 55)
     print("Vector Clock Demo — demonstrating concurrent detection")

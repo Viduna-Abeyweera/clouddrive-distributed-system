@@ -1,10 +1,6 @@
-# =============================================================================
 # time_sync/ntp_client.py
-# CloudDrive — Member 3: Time Synchronization
-#
 # Provides NTP-based physical clock synchronization.
 # Also provides clock skew simulation for testing and report demonstrations.
-# =============================================================================
 
 import time
 import threading
@@ -22,9 +18,7 @@ _skew_offset_sec = 0.0
 _skew_lock       = threading.Lock()
 
 
-# =============================================================================
 # Core NTP functions
-# =============================================================================
 
 def get_ntp_offset(server: str = "pool.ntp.org") -> float:
     """
@@ -81,9 +75,7 @@ def get_ntp_details(server: str = "pool.ntp.org") -> dict:
         return {"error": str(e)}
 
 
-# =============================================================================
 # Clock skew simulation (for testing and report demos)
-# =============================================================================
 
 def simulate_skew(offset_ms: float):
     """
@@ -108,10 +100,7 @@ def clear_skew():
     """Remove any artificial clock skew."""
     simulate_skew(0.0)
 
-
-# =============================================================================
 # Analysis and reporting
-# =============================================================================
 
 def measure_offset_multiple(server: str = "pool.ntp.org",
                              samples: int = 5) -> dict:
@@ -167,10 +156,7 @@ def log_skew_analysis(node_skews: dict):
     print("=" * 55 + "\n")
 
 
-# =============================================================================
 # Background NTP sync thread
-# =============================================================================
-
 class NTPSyncService:
     """
     Periodically re-queries NTP and logs the offset.
@@ -201,9 +187,8 @@ class NTPSyncService:
             time.sleep(self.interval_sec)
 
 
-# =============================================================================
+
 # Demo — run directly to show NTP query + skew simulation
-# =============================================================================
 if __name__ == "__main__":
     print("=" * 55)
     print("NTP Client Demo")
