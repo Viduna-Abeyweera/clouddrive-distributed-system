@@ -627,7 +627,7 @@ select.inp{cursor:pointer}
             <div class="scenario-icon s2">T2</div>
             <div class="scenario-text">
               <div class="scenario-name">Fault Tolerance Test</div>
-              <div class="scenario-desc">Kill node_B, upload, recover, verify</div>
+              <div class="scenario-desc">Kill a follower, upload, recover, verify</div>
             </div>
             <div class="running-bar" id="bar-t2"></div>
           </button>
@@ -1075,58 +1075,137 @@ async function runT1() {
 
 // T2 — Fault Tolerance
 async function runT2() {
-  if (scenarioRunning) return;
-  disableScenarios(true);
-  animateBar('t2', 30000);
-  log('info', 'T2 — Fault tolerance test starting...');
+    if (scenarioRunning) return;
+    disableScenarios(true);
+    animateBar('t2', 40000);
+    log('info', 'T2 — Fault tolerance test starting...');
 
-  setStep('Step 1/6: Killing node_B...', 'Simulating server crash');
-  await killNode('node_B', 6002);
-  await sleep(500);
+    // ── Step 1: Find the current leader ──────────────────────────────
+    setStep('Step 1/7: Finding current leader...', 'Ensuring we kill a non-leader node');
+    let currentLeader = null;
+    let leaderPort = null;
 
-  setStep('Step 2/6: Waiting for failure detection...', 'Heartbeat timeout: 6 seconds');
-  log('info', 'Waiting 8 seconds for heartbeat to detect node_B as dead...');
-  await sleep(8000);
+    for (const n of NODES) {
+        try {
+            const s = await get('/status', n.port);
+            if (s.role === 'leader') {
+                currentLeader = n.id;
+                leaderPort = n.port;
+                break;
+            }
+        } catch(e) {}
+    }
 
-  const status = await get('/status', 6001).catch(() => null);
-  if (status?.dead_nodes?.includes('node_B')) {
-    log('ok', 'node_B correctly detected as DEAD');
-  } else {
-    log('warn', 'node_B not yet in dead_nodes — may need more time');
-  }
+    if (!currentLeader) {
+        for (const n of NODES) {
+            try {
+                const s = await get('/status', n.port);
+                if (s.leader) {
+                    currentLeader = s.leader;
+                    leaderPort = NODES.find(x => x.id === s.leader)?.port;
+                    break;
+                }
+            } catch(e) {}
+        }
+    }
 
-  setStep('Step 3/6: Uploading 2 files while node_B is dead...');
-  await post('/upload', 6001, { filename: 'while_b_down_1.txt', content: 'Written while B was dead' });
-  await post('/upload', 6001, { filename: 'while_b_down_2.txt', content: 'Also written while B was dead' });
-  knownFiles.add('while_b_down_1.txt');
-  knownFiles.add('while_b_down_2.txt');
-  log('ok', 'Uploaded 2 files while node_B was down');
-  await sleep(1000);
+    if (!currentLeader) {
+        log('error', 'No leader found — ensure all nodes are running');
+        clearStep();
+        disableScenarios(false);
+        toast('error', 'T2 — No leader found');
+        return;
+    }
 
-  setStep('Step 4/6: Checking node_B is missing the files...');
-  const bFiles = await get('/files', 6002).catch(() => ({ count: 0 }));
-  log('info', `node_B file count before recovery: ${bFiles.count}`);
-  await sleep(500);
+    log('ok', `Current leader: ${currentLeader} (port ${leaderPort})`);
 
-  setStep('Step 5/6: Recovering node_B...', 'Triggering sync from healthy peer');
-  await recoverNode('node_B', 6002);
-  await sleep(5000);
+    // Pick a NON-LEADER node to kill
+    let killTarget = null;
+    let killPort = null;
+    for (const n of NODES) {
+        if (n.id !== currentLeader) {
+            killTarget = n.id;
+            killPort = n.port;
+            break;
+        }
+    }
 
-  setStep('Step 6/6: Verifying node_B synced all missed files...');
-  const bFiles2 = await get('/files', 6002).catch(() => ({ count: 0 }));
-  log('info', `node_B file count after recovery: ${bFiles2.count}`);
+    log('info', `Selected non-leader node to kill: ${killTarget} (port ${killPort})`);
+    await sleep(500);
 
-  await refreshFiles();
-  clearStep();
-  disableScenarios(false);
+    // ── Step 2: Kill the follower node ───────────────────────────────
+    setStep(`Step 2/7: Killing ${killTarget}...`, 'Simulating server crash on a follower');
+    await killNode(killTarget, killPort);
+    await sleep(500);
 
-  if (bFiles2.count > bFiles.count) {
-    toast('ok', `T2 PASSED — node_B recovered ${bFiles2.count - bFiles.count} missed files`);
-    log('ok', `T2 PASSED — count ${bFiles.count} → ${bFiles2.count}`);
-  } else {
-    toast('error', 'T2 — Recovery may not have completed');
-    log('warn', 'T2 — Check node_B manually');
-  }
+    // ── Step 3: POLL until failure is detected (not just a fixed sleep) ──
+    setStep(`Step 3/7: Waiting for failure detection...`, 'Polling until heartbeat detects crash');
+    log('info', `Polling for ${killTarget} to appear in dead_nodes...`);
+
+    let detected = false;
+    for (let attempt = 0; attempt < 10 && !detected; attempt++) {
+        await sleep(2000);
+        const status = await get('/status', leaderPort).catch(() => null);
+        if (status?.dead_nodes?.includes(killTarget)) {
+            detected = true;
+            log('ok', `${killTarget} correctly detected as DEAD (after ${(attempt+1)*2}s)`);
+        } else {
+            setStep(`Step 3/7: Waiting for failure detection...`,
+                    `Attempt ${attempt+1}/10 — not yet detected`);
+        }
+    }
+
+    if (!detected) {
+        log('warn', `${killTarget} not detected as dead after 20s — proceeding anyway`);
+    }
+
+    // ── Step 4: Upload 2 files while the node is dead ────────────────
+    // Use unique filenames with timestamp so re-runs don't collide
+    const ts = Date.now();
+    const fname1 = `fault_test_${ts}_1.txt`;
+    const fname2 = `fault_test_${ts}_2.txt`;
+
+    setStep(`Step 4/7: Uploading 2 files while ${killTarget} is dead...`);
+    await post('/upload', leaderPort, {
+        filename: fname1,
+        content: `Written while ${killTarget} was dead (run ${ts})`
+    });
+    await post('/upload', leaderPort, {
+        filename: fname2,
+        content: `Also written while ${killTarget} was dead (run ${ts})`
+    });
+    knownFiles.add(fname1);
+    knownFiles.add(fname2);
+    log('ok', `Uploaded 2 files to leader (${currentLeader}) while ${killTarget} was down`);
+    await sleep(1000);
+
+    // ── Step 5: Confirm the dead node is missing the files ──────────
+    setStep(`Step 5/7: Checking ${killTarget} is missing the files...`);
+    const beforeFiles = await get('/files', killPort).catch(() => ({ count: 0 }));
+    log('info', `${killTarget} file count before recovery: ${beforeFiles.count}`);
+    await sleep(500);
+
+    // ── Step 6: Recover the killed node ──────────────────────────────
+    setStep(`Step 6/7: Recovering ${killTarget}...`, 'Triggering sync from healthy peer');
+    await recoverNode(killTarget, killPort);
+    await sleep(5000);
+
+    // ── Step 7: Verify the recovered node synced all missed files ────
+    setStep(`Step 7/7: Verifying ${killTarget} synced all missed files...`);
+    const afterFiles = await get('/files', killPort).catch(() => ({ count: 0 }));
+    log('info', `${killTarget} file count after recovery: ${afterFiles.count}`);
+
+    await refreshFiles();
+    clearStep();
+    disableScenarios(false);
+
+    if (afterFiles.count > beforeFiles.count) {
+        toast('ok', `T2 PASSED — ${killTarget} recovered ${afterFiles.count - beforeFiles.count} missed files`);
+        log('ok', `T2 PASSED — ${killTarget}: count ${beforeFiles.count} → ${afterFiles.count}`);
+    } else {
+        toast('error', `T2 — Recovery may not have completed for ${killTarget}`);
+        log('warn', `T2 — ${killTarget} file count unchanged. Check manually.`);
+    }
 }
 
 // T3 — Leader Election
