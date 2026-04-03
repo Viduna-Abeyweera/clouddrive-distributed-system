@@ -57,13 +57,19 @@ def create_app(node, replication_mgr, failure_detector, raft, clock):
         result = replication_mgr.write_file(filename, content, ts)
 
         # Append to Raft log (Member 4)
+        # IMPORTANT: Only the LEADER should append to the Raft log and
+        # replicate log entries to followers. If a follower does this,
+        # it sends APPEND_ENTRIES with its own node_id as leader_id,
+        # causing the real leader to step down — a split-brain bug.
         if raft and raft.log_manager:
-            log_entry = raft.log_manager.append({
-                "type":      "WRITE",
-                "filename":  filename,
-                "file_data": node.get_file(filename),
-            })
-            raft.log_manager.replicate_to_followers(log_entry)
+            from consensus.raft import Role
+            if raft.role == Role.LEADER:
+                log_entry = raft.log_manager.append({
+                    "type":      "WRITE",
+                    "filename":  filename,
+                    "file_data": node.get_file(filename),
+                })
+                raft.log_manager.replicate_to_followers(log_entry)
 
         if result.get("status") in ("ok", "conflict_rejected"):
             return jsonify(result), 200
@@ -154,12 +160,17 @@ def create_app(node, replication_mgr, failure_detector, raft, clock):
     def simulate_kill():
         """
         Simulate a node crash by setting alive = False.
-        The node's socket server keeps running (so we can recover it),
-        but it stops responding to heartbeats as if it were dead.
-
-        Use for demo: show the heartbeat system detecting the failure.
+        Also stops Raft heartbeats if this node was the leader,
+        preventing stale heartbeat threads from running.
         """
         node.alive = False
+
+        # Stop leader heartbeats immediately so the dead node
+        # doesn't keep trying to send heartbeats (which all fail)
+        if raft and raft._heartbeat_timer:
+            raft._heartbeat_timer.cancel()
+            raft._heartbeat_timer = None
+
         print(f"\n[DEMO] {node.node_id} simulating CRASH\n")
         return jsonify({
             "status":  "killed",
@@ -175,6 +186,10 @@ def create_app(node, replication_mgr, failure_detector, raft, clock):
         """
         Bring a simulated-dead node back online and trigger recovery sync.
 
+        Resets Raft state to FOLLOWER so the recovered node doesn't
+        think it's still the leader. The actual leader's heartbeats
+        will reach this node within 1 second and confirm the correct state.
+
         Uses node.peers (static config) instead of failure_detector.get_alive_nodes()
         because the failure detector hasn't had time to re-ping peers yet after
         the simulated crash — it still thinks all peers are dead.
@@ -182,18 +197,27 @@ def create_app(node, replication_mgr, failure_detector, raft, clock):
         node.alive = True
         print(f"\n[DEMO] {node.node_id} recovering...\n")
 
+        # Reset Raft state to FOLLOWER on recovery.
+        # Without this, a node that was leader before being killed
+        # might still think it's leader and conflict with the new
+        # legitimately elected leader.
+        if raft:
+            from consensus.raft import Role
+            with raft._state_lock:
+                if raft.role in (Role.LEADER, Role.CANDIDATE):
+                    print(f"[DEMO] Resetting {node.node_id} from {raft.role.value} to FOLLOWER")
+                    raft.role = Role.FOLLOWER
+                    raft.voted_for = None
+                    raft.leader_id = None
+            # Restart the election timer so this node participates
+            # in future elections if needed
+            raft._reset_election_timer()
+
         # Trigger file sync from a healthy peer
         result = {}
         from fault_tolerance.recovery import recover_node
 
         # Try each known peer from config until one responds successfully.
-        # We cannot use failure_detector here because:
-        #   - While this node was "dead", its HeartbeatService couldn't reach
-        #     any peers, so it marked them ALL as dead from our perspective.
-        #   - We just set alive=True, but the heartbeat thread hasn't had
-        #     time to re-ping and update the alive status yet.
-        #   - Using failure_detector.get_alive_nodes() would return only
-        #     ourselves, giving us an empty peer list and no sync.
         for peer in node.peers:
             sync_result = recover_node(node, peer)
             if sync_result is not None:
