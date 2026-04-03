@@ -78,8 +78,19 @@ class LogManager:
         """
         Send APPEND_ENTRIES to all alive peers with the new log entry.
         Called after append() to distribute the entry.
+
+        IMPORTANT: Only the leader should call this. If a follower sends
+        APPEND_ENTRIES, the real leader will see it as a valid leader
+        message (same term) and step down — causing a split-brain bug.
         """
-        raft  = self.node.raft_node
+        # Safety check: only the leader should replicate log entries
+        raft = self.node.raft_node
+        if raft:
+            from consensus.raft import Role
+            if raft.role != Role.LEADER:
+                print(f"[LOG] {self.node.node_id} is not leader — skipping log replication")
+                return
+
         alive = self.node.failure_detector.get_alive_nodes() if self.node.failure_detector else []
 
         for peer in alive:
@@ -95,6 +106,15 @@ class LogManager:
     def _send_append_entries(self, peer: dict, entry: LogEntry):
         """Send one AppendEntries RPC to a single peer."""
         raft = self.node.raft_node
+
+        # Double-check we're still the leader before sending.
+        # Prevents race condition where node loses leadership between
+        # the check in replicate_to_followers() and this point.
+        if raft:
+            from consensus.raft import Role
+            if raft.role != Role.LEADER:
+                return
+
         response = self.node.send_message(
             peer["host"], peer["port"],
             {
