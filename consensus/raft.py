@@ -102,11 +102,22 @@ class RaftNode:
     def _start_election(self):
         """
         Election timeout fired — become a candidate and request votes.
-        Only starts if we're not already the leader.
+        Only starts if we're not already the leader and the node is alive.
+
+        IMPORTANT: If the node is simulating a crash (alive=False), we must
+        NOT start an election. Otherwise the term inflates while the node
+        is dead, and when it recovers it rejects the legitimate leader's
+        heartbeats because its term is artificially higher.
         """
         with self._state_lock:
             if self.role == Role.LEADER:
                 return   # Already leader, no need to hold election
+
+            # Don't start elections while simulating a crash.
+            # Just reschedule the timer so we check again later.
+            if not self.node.alive:
+                self._reset_election_timer()
+                return
 
             self.role         = Role.CANDIDATE
             self.current_term += 1
@@ -282,6 +293,10 @@ class RaftNode:
         """Send periodic heartbeat AppendEntries to all followers."""
         if self.role != Role.LEADER:
             return   # Stop if we lost leadership
+
+        # Don't send heartbeats if the node is simulating a crash
+        if not self.node.alive:
+            return
 
         for peer in self.node.peers:
             threading.Thread(
