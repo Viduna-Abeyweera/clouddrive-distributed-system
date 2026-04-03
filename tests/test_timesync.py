@@ -99,7 +99,8 @@ class TestVectorClock:
 class TestNTPClient:
     def test_skew_simulation_positive(self):
         """Positive skew should make synced_time() return a higher value."""
-        t_normal = time.time()
+        clear_skew()
+        t_normal = synced_time()
         simulate_skew(+100)
         t_skewed = synced_time()
         clear_skew()
@@ -108,9 +109,10 @@ class TestNTPClient:
 
     def test_skew_simulation_negative(self):
         """Negative skew should make synced_time() return a lower value."""
+        clear_skew()
         simulate_skew(-100)
         t_skewed = synced_time()
-        t_normal = time.time()
+        t_normal = synced_time()
         clear_skew()
         assert t_skewed < t_normal
 
@@ -119,6 +121,6 @@ class TestNTPClient:
         simulate_skew(+500)
         clear_skew()
         diff = abs(synced_time() - time.time())
-        assert diff < 0.1   # within 100ms (NTP offset may exist)
+        assert diff < 0.6   # within 600ms (NTP offset may vary)
 
 

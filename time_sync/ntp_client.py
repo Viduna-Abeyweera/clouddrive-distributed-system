@@ -67,7 +67,7 @@ def get_ntp_details(server: str = "pool.ntp.org") -> dict:
             "offset_sec":     round(response.offset, 6),
             "offset_ms":      round(response.offset * 1000, 3),
             "round_trip_ms":  round(response.delay  * 1000, 3),
-            "ref_time":       ntplib.to_time(response.ref_time),
+            "ref_time":       response.ref_time,
             "stratum":        response.stratum,
             "tx_time":        response.tx_time,
         }
