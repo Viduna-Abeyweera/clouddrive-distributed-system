@@ -1,18 +1,13 @@
-# =============================================================================
 # time_sync/lamport_clock.py
-# CloudDrive — Member 3: Time Synchronization
-#
 # Implements a Lamport Logical Clock.
 # Used by every node on every send and receive to produce a consistent,
 # causally-ordered event timeline across all 4 nodes.
-#
 # Rules:
 #   1. Before sending a message: increment counter, attach to message.
 #   2. On receiving a message:   counter = max(local, received) + 1
 #   3. For local events:         just increment counter.
 #
 # This guarantees: if event A causally precedes event B, clock(A) < clock(B).
-# =============================================================================
 
 import threading
 
@@ -39,9 +34,8 @@ class LamportClock:
         self._time = initial
         self._lock = threading.Lock()
 
-    # ------------------------------------------------------------------
+
     # Core operations
-    # ------------------------------------------------------------------
 
     def tick(self) -> int:
         """
@@ -75,9 +69,8 @@ class LamportClock:
         with self._lock:
             self._time = value
 
-    # ------------------------------------------------------------------
+
     # Comparison helpers
-    # ------------------------------------------------------------------
 
     @staticmethod
     def happened_before(ts_a: int, ts_b: int) -> bool:
@@ -88,17 +81,17 @@ class LamportClock:
         """
         return ts_a < ts_b
 
-    # ------------------------------------------------------------------
+    
     # String representation (useful for debugging / report demos)
-    # ------------------------------------------------------------------
+   
 
     def __repr__(self):
         return f"LamportClock(time={self._time})"
 
 
-# =============================================================================
-# Demo — run this file directly to see Lamport clock in action
-# =============================================================================
+
+# Demo
+
 if __name__ == "__main__":
     print("=" * 50)
     print("Lamport Clock Demo — 3 nodes, 6 events")
