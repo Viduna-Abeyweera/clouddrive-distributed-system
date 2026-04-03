@@ -232,6 +232,13 @@ class StorageNode:
         Route an incoming message to the correct registered handler.
         Falls back to a default handler for unknown message types.
         """
+        # ── NEW: If simulating a crash, reject ALL incoming messages ──
+        # Without this, a "dead" node still accepts REPLICATE messages
+        # from peers who haven't detected the failure yet, causing the
+        # node to receive files it should have missed.
+        if not self.alive:
+            return {"error": "node is simulating a crash"}
+
         msg_type = message.get("type", "unknown")
 
         if msg_type in self._handlers:
@@ -268,10 +275,7 @@ class StorageNode:
     # -------------------------------------------------------------------------
 
     def _handle_heartbeat(self, message: dict) -> dict:
-        """Respond to a heartbeat ping. If simulating a crash, block so peers time out."""
-        if not self.alive:
-            import time
-            time.sleep(10)  # block long enough for sender timeout (3s) to fire
+        """Respond to a heartbeat ping."""
         return {"status": "alive", "node_id": self.node_id,
                 "lamport_ts": self.lamport_clock.get_time() if self.lamport_clock else 0}
 
